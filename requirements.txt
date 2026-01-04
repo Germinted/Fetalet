@@ -1,0 +1,22 @@
+# Core deep learning framework
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Data processing and numerical computing
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Scientific computing
+scipy>=1.10.0
+
+# Machine learning
+scikit-learn>=1.3.0
+
+# Visualization
+matplotlib>=3.7.0
+
+# Physiological signal processing
+wfdb>=4.3.0
+
+# GPU support
+torch==2.0.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
