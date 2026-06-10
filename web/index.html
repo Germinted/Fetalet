@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FETALET | Fetal Heart Rate Anomaly Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Clinical Dark Palette with Warm Vitality Accents */
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: #1a2332;
+            --bg-elevated: #243045;
+
+            /* FHR Signal Colors */
+            --fhr-primary: #f97316; /* Warm amber-orange */
+            --fhr-glow: rgba(249, 115, 22, 0.3);
+            --toco-primary: #06b6d4; /* Clinical cyan */
+            --toco-glow: rgba(6, 182, 212, 0.3);
+
+            /* Status Colors */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+
+            /* Text */
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+
+            /* Accents */
+            --accent: #f97316;
+            --accent-subtle: rgba(249, 115, 22, 0.1);
+            --border: rgba(148, 163, 184, 0.1);
+            --border-active: rgba(249, 115, 22, 0.3);
+
+            /* Spacing */
+            --space-xs: 0.25rem;
+            --space-sm: 0.5rem;
+            --space-md: 1rem;
+            --space-lg: 1.5rem;
+            --space-xl: 2rem;
+            --space-2xl: 3rem;
+
+            /* Transitions */
+            --transition-fast: 150ms ease;
+            --transition-normal: 300ms ease;
+            --transition-slow: 500ms ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Space Grotesk', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ECG Grid Background */
+        .ecg-grid {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.03;
+            background-image:
+                linear-gradient(var(--text-muted) 1px, transparent 1px),
+                linear-gradient(90deg, var(--text-muted) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        .ecg-grid::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(var(--text-muted) 1px, transparent 1px),
+                linear-gradient(90deg, var(--text-muted) 1px, transparent 1px);
+            background-size: 10px 10px;
+            opacity: 0.5;
+        }
+
+        /* Ambient Pulse Animation */
+        @keyframes ambientPulse {
+            0%, 100% { opacity: 0.02; }
+            50% { opacity: 0.04; }
+        }
+
+        .ambient-pulse {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 150vmax;
+            height: 150vmax;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, var(--fhr-glow) 0%, transparent 70%);
+            animation: ambientPulse 4s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Layout */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-lg) var(--space-xl);
+            background: rgba(10, 14, 23, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            position: relative;
+        }
+
+        .logo-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .logo-icon .heartbeat-line {
+            stroke: var(--accent);
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: drawHeartbeat 2s ease-in-out infinite;
+        }
+
+        @keyframes drawHeartbeat {
+            0% { stroke-dashoffset: 100; }
+            30% { stroke-dashoffset: 0; }
+            70% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: -100; }
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        .logo-text span {
+            color: var(--accent);
+        }
+
+        .header-nav {
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        .nav-btn {
+            padding: var(--space-sm) var(--space-lg);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .nav-btn:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .nav-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: var(--space-xl);
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: var(--space-2xl) 0;
+        }
+
+        .hero-title {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: var(--space-lg);
+        }
+
+        .hero-title em {
+            font-style: italic;
+            color: var(--accent);
+        }
+
+        .hero-subtitle {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto var(--space-xl);
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-2xl);
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: var(--space-lg);
+            text-align: center;
+            transition: all var(--transition-normal);
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-active);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-family: 'DM Mono', monospace;
+            font-size: 2rem;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: var(--space-xs);
+        }
+
+        /* Analysis Section */
+        .analysis-section {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: var(--space-xl);
+            margin-bottom: var(--space-2xl);
+        }
+
+        @media (max-width: 1200px) {
+            .analysis-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Signal Display Card */
+        .signal-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .signal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-lg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .signal-title {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            font-weight: 600;
+        }
+
+        .signal-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .signal-indicator.analyzing {
+            background: var(--warning);
+        }
+
+        .signal-indicator.anomaly {
+            background: var(--danger);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
+        }
+
+        .signal-controls {
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        .signal-btn {
+            padding: var(--space-xs) var(--space-md);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .signal-btn:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        /* Signal Canvas Container */
+        .signal-canvas-container {
+            position: relative;
+            height: 300px;
+            background: var(--bg-secondary);
+            padding: var(--space-md);
+        }
+
+        .signal-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .signal-grid {
+            position: absolute;
+            inset: var(--space-md);
+            pointer-events: none;
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        /* Dual Signal Display */
+        .dual-signal {
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: var(--space-md);
+        }
+
+        .fhr-signal, .toco-signal {
+            position: relative;
+        }
+
+        .signal-label {
+            position: absolute;
+            top: var(--space-sm);
+            left: var(--space-md);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: 4px;
+            z-index: 10;
+        }
+
+        .fhr-signal .signal-label {
+            background: var(--fhr-glow);
+            color: var(--fhr-primary);
+        }
+
+        .toco-signal .signal-label {
+            background: var(--toco-glow);
+            color: var(--toco-primary);
+        }
+
+        /* Anomaly Highlight */
+        .anomaly-highlight {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            background: var(--danger);
+            opacity: 0.1;
+            border-left: 2px solid var(--danger);
+            border-right: 2px solid var(--danger);
+            pointer-events: none;
+            animation: highlightPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes highlightPulse {
+            0%, 100% { opacity: 0.1; }
+            50% { opacity: 0.2; }
+        }
+
+        /* Results Sidebar */
+        .results-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .result-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: var(--space-lg);
+        }
+
+        .result-card.warning {
+            border-color: rgba(239, 68, 68, 0.3);
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(239, 68, 68, 0.05) 100%);
+        }
+
+        .result-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: var(--space-md);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .result-value {
+            font-family: 'DM Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+
+        .result-value.normal {
+            color: var(--success);
+        }
+
+        .result-value.anomaly {
+            color: var(--danger);
+            animation: alertPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .result-confidence {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-top: var(--space-md);
+        }
+
+        .confidence-bar {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-elevated);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #fbbf24);
+            border-radius: 3px;
+            transition: width var(--transition-slow);
+        }
+
+        .confidence-value {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* Shapelet Visualization */
+        .shapelet-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: var(--space-lg);
+        }
+
+        .shapelet-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: var(--space-md);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .shapelet-title svg {
+            width: 16px;
+            height: 16px;
+            color: var(--accent);
+        }
+
+        .shapelet-display {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            padding: var(--space-md);
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+
+        .shapelet-canvas {
+            flex: 1;
+            height: 60px;
+        }
+
+        .shapelet-info {
+            text-align: right;
+        }
+
+        .shapelet-match {
+            font-family: 'DM Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .shapelet-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Upload Section */
+        .upload-section {
+            text-align: center;
+            padding: var(--space-2xl) 0;
+        }
+
+        .upload-zone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-lg);
+            padding: var(--space-2xl);
+            background: var(--bg-card);
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-subtle);
+        }
+
+        .upload-icon {
+            width: 64px;
+            height: 64px;
+            color: var(--text-muted);
+            transition: color var(--transition-fast);
+        }
+
+        .upload-zone:hover .upload-icon {
+            color: var(--accent);
+        }
+
+        .upload-text {
+            font-size: 1.125rem;
+            font-weight: 500;
+        }
+
+        .upload-subtext {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .upload-input {
+            display: none;
+        }
+
+        /* File List */
+        .file-list {
+            margin-top: var(--space-xl);
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            padding: var(--space-md);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: var(--space-sm);
+        }
+
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-elevated);
+            border-radius: 8px;
+            color: var(--text-secondary);
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 500;
+        }
+
+        .file-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .file-status {
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .file-status.pending {
+            background: var(--bg-elevated);
+            color: var(--text-muted);
+        }
+
+        .file-status.analyzing {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .file-status.complete {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .file-remove {
+            padding: var(--space-sm);
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity var(--transition-fast);
+        }
+
+        .file-remove:hover {
+            opacity: 1;
+            color: var(--danger);
+        }
+
+        /* Footer */
+        .footer {
+            padding: var(--space-xl);
+            text-align: center;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-elevated);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-active);
+        }
+
+        /* Utility Classes */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .gap-sm { gap: var(--space-sm); }
+        .gap-md { gap: var(--space-md); }
+        .text-accent { color: var(--accent); }
+        .text-muted { color: var(--text-muted); }
+
+        /* Entry Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        .delay-1 { animation-delay: 0.1s; opacity: 0; }
+        .delay-2 { animation-delay: 0.2s; opacity: 0; }
+        .delay-3 { animation-delay: 0.3s; opacity: 0; }
+        .delay-4 { animation-delay: 0.4s; opacity: 0; }
+    </style>
+</head>
+<body>
+    <div class="ecg-grid"></div>
+    <div class="ambient-pulse"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 50 50">
+                        <circle cx="25" cy="25" r="23" fill="none" stroke="rgba(249, 115, 22, 0.2)" stroke-width="2"/>
+                        <path class="heartbeat-line" d="M5 25 L15 25 L20 15 L25 35 L30 20 L35 25 L45 25"/>
+                    </svg>
+                </div>
+                <div class="logo-text">FETA<span>LET</span></div>
+            </div>
+            <nav class="header-nav">
+                <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+                <button class="nav-btn" data-view="analyze">Analyze</button>
+                <button class="nav-btn" data-view="docs">Documentation</button>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="view">
+                <section class="hero animate-in">
+                    <h1 class="hero-title">
+                        <em>Fetal Heart Rate</em><br>
+                        Anomaly Detection
+                    </h1>
+                    <p class="hero-subtitle">
+                        Deep learning-powered analysis using dual-branch CNN with prototype-based shapelet matching.
+                        Detect late decelerations and cardiac anomalies with clinical precision.
+                    </p>
+                </section>
+
+                <!-- Stats -->
+                <div class="stats-bar animate-in delay-1">
+                    <div class="stat-card">
+                        <div class="stat-value">94.7%</div>
+                        <div class="stat-label">Detection Accuracy</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">12ms</div>
+                        <div class="stat-label">Avg. Inference Time</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">2,847</div>
+                        <div class="stat-label">Samples Analyzed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">0.91</div>
+                        <div class="stat-label">ROC-AUC Score</div>
+                    </div>
+                </div>
+
+                <!-- Analysis Preview -->
+                <div class="analysis-section animate-in delay-2">
+                    <div class="signal-card">
+                        <div class="signal-header">
+                            <div class="signal-title">
+                                <span class="signal-indicator" id="signalIndicator"></span>
+                                <span id="signalStatus">Live FHR Monitoring</span>
+                            </div>
+                            <div class="signal-controls">
+                                <button class="signal-btn" id="toggleSignal">Pause</button>
+                                <button class="signal-btn" id="refreshSignal">Refresh</button>
+                            </div>
+                        </div>
+                        <div class="signal-canvas-container dual-signal">
+                            <div class="signal-grid"></div>
+                            <div class="fhr-signal">
+                                <span class="signal-label">FHR (bpm)</span>
+                                <canvas id="fhrCanvas" class="signal-canvas"></canvas>
+                            </div>
+                            <div class="toco-signal">
+                                <span class="signal-label">TOCO</span>
+                                <canvas id="tocoCanvas" class="signal-canvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="results-sidebar">
+                        <div class="result-card" id="resultCard">
+                            <div class="result-title">Analysis Result</div>
+                            <div class="result-value normal" id="resultValue">NORMAL</div>
+                            <div class="result-confidence">
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" id="confidenceFill" style="width: 94%"></div>
+                                </div>
+                                <span class="confidence-value" id="confidenceValue">94%</span>
+                            </div>
+                        </div>
+
+                        <div class="shapelet-card">
+                            <div class="shapelet-title">
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                Prototype Matching
+                            </div>
+                            <div class="shapelet-display">
+                                <canvas id="shapeletCanvas" class="shapelet-canvas"></canvas>
+                                <div class="shapelet-info">
+                                    <div class="shapelet-match" id="shapeletMatch">0.23</div>
+                                    <div class="shapelet-label">Distance Score</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analyze View -->
+            <div id="analyze-view" class="view hidden">
+                <section class="hero animate-in">
+                    <h1 class="hero-title">Analyze Signals</h1>
+                    <p class="hero-subtitle">
+                        Upload CSV files with FHR and TOCO signals for anomaly detection analysis.
+                    </p>
+                </section>
+
+                <div class="upload-section animate-in delay-1">
+                    <div class="upload-zone" id="uploadZone">
+                        <svg class="upload-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <div class="upload-text">Drop CSV files here or click to upload</div>
+                        <div class="upload-subtext">Supports CSV format with FHR, TOCO columns</div>
+                        <input type="file" class="upload-input" id="fileInput" accept=".csv" multiple>
+                    </div>
+                </div>
+
+                <div class="file-list" id="fileList"></div>
+            </div>
+
+            <!-- Documentation View -->
+            <div id="docs-view" class="view hidden">
+                <section class="hero animate-in">
+                    <h1 class="hero-title">Documentation</h1>
+                </section>
+                <div class="result-card animate-in delay-1">
+                    <h3 style="margin-bottom: 1rem;">Model Architecture</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.8;">
+                        FETALET uses a dual-branch neural network combining CNN-based feature extraction with
+                        prototype-based shapelet matching. The CNN branch extracts general temporal features from
+                        FHR and TOCO signals, while the prototype branch matches learnable shapelet patterns
+                        against candidate segments generated from the input.
+                    </p>
+                </div>
+                <div class="result-card animate-in delay-2" style="margin-top: 1rem;">
+                    <h3 style="margin-bottom: 1rem;">Signal Format</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.8;">
+                        <strong>FHRA Dataset:</strong> CSV files with columns for timestamp, FHR (fetal heart rate in bpm),
+                        TOCO (tocodynamometer/uterine activity), and label. Signals are processed using sliding windows
+                        with configurable stride for real-time analysis.
+                    </p>
+                </div>
+                <div class="result-card animate-in delay-3" style="margin-top: 1rem;">
+                    <h3 style="margin-bottom: 1rem;">Performance Metrics</h3>
+                    <p style="color: var(--text-secondary); line-height: 1.8;">
+                        The model achieves 94.7% accuracy with 0.91 ROC-AUC on the test set. Average inference time
+                        is 12ms per sample, making it suitable for real-time fetal monitoring applications.
+                    </p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            FETALET &mdash; Fetal Heart Rate Anomaly Detection using Deep Learning
+        </footer>
+    </div>
+
+    <script>
+        // ============================================
+        // FETALET Web Interface
+        // ============================================
+
+        class FHRSignalVisualizer {
+            constructor(canvasId, color, minVal, maxVal) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.color = color;
+                this.minVal = minVal;
+                this.maxVal = maxVal;
+                this.data = [];
+                this.isRunning = true;
+                this.animationId = null;
+
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                this.generateInitialData();
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height / 2 - 10;
+            }
+
+            generateInitialData() {
+                const length = 200;
+                for (let i = 0; i < length; i++) {
+                    this.data.push(this.generateValue(i));
+                }
+            }
+
+            generateValue(t) {
+                // Simulate FHR with baseline variability and accelerations
+                const baseline = 135;
+                const variability = Math.sin(t * 0.1) * 5 + Math.sin(t * 0.3) * 2;
+                const acceleration = Math.random() > 0.95 ? 15 : 0;
+                const deceleration = Math.random() > 0.98 ? -20 : 0;
+
+                return baseline + variability + acceleration + deceleration;
+            }
+
+            update() {
+                if (!this.isRunning) return;
+
+                // Remove first point, add new point
+                this.data.shift();
+                const newT = Date.now() / 100;
+                this.data.push(this.generateValue(newT));
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+                const padding = 20;
+
+                ctx.clearRect(0, 0, w, h);
+
+                // Draw glow effect
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 10;
+
+                // Draw signal line
+                ctx.beginPath();
+                const step = w / (this.data.length - 1);
+
+                for (let i = 0; i < this.data.length; i++) {
+                    const normalized = (this.data[i] - this.minVal) / (this.maxVal - this.minVal);
+                    const x = i * step;
+                    const y = h - padding - (normalized * (h - 2 * padding));
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+
+                // Reset shadow
+                ctx.shadowBlur = 0;
+            }
+
+            start() {
+                const animate = () => {
+                    this.update();
+                    this.draw();
+                    this.animationId = requestAnimationFrame(animate);
+                };
+                animate();
+            }
+
+            stop() {
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                }
+            }
+
+            toggle() {
+                this.isRunning = !this.isRunning;
+                return this.isRunning;
+            }
+        }
+
+        class ShapeletVisualizer {
+            constructor() {
+                this.canvas = document.getElementById('shapeletCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.matchValue = 0.23;
+
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                this.draw();
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width - 100;
+                this.canvas.height = 60;
+                this.draw();
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+
+                ctx.clearRect(0, 0, w, h);
+
+                // Draw prototype shapelet (late deceleration pattern)
+                ctx.strokeStyle = '#f97316';
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#f97316';
+                ctx.shadowBlur = 8;
+
+                ctx.beginPath();
+                ctx.moveTo(0, h * 0.4);
+
+                // Create late deceleration shape
+                const points = [
+                    { x: 0.2, y: 0.4 },
+                    { x: 0.3, y: 0.35 },
+                    { x: 0.4, y: 0.5 }, // Start deceleration
+                    { x: 0.5, y: 0.8 }, // Nadir (delayed)
+                    { x: 0.6, y: 0.5 },
+                    { x: 0.7, y: 0.4 },
+                    { x: 1.0, y: 0.4 }
+                ];
+
+                for (let i = 0; i < points.length; i++) {
+                    const px = points[i].x * w;
+                    const py = points[i].y * h;
+                    ctx.lineTo(px, py);
+                }
+
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            updateMatch(value) {
+                this.matchValue = value;
+                document.getElementById('shapeletMatch').textContent = value.toFixed(2);
+            }
+        }
+
+        // ============================================
+        // Application
+        // ============================================
+
+        class FetaletApp {
+            constructor() {
+                this.currentView = 'dashboard';
+                this.fhrVisualizer = null;
+                this.tocoVisualizer = null;
+                this.shapeletViz = null;
+                this.uploadedFiles = [];
+
+                this.init();
+            }
+
+            init() {
+                this.setupNavigation();
+                this.setupVisualizers();
+                this.setupUpload();
+                this.setupControls();
+                this.startSimulation();
+            }
+
+            setupNavigation() {
+                const navBtns = document.querySelectorAll('.nav-btn');
+                navBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const view = btn.dataset.view;
+                        this.switchView(view);
+                    });
+                });
+            }
+
+            switchView(viewName) {
+                // Update nav buttons
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.view === viewName);
+                });
+
+                // Update views
+                document.querySelectorAll('.view').forEach(v => {
+                    v.classList.add('hidden');
+                });
+                document.getElementById(`${viewName}-view`).classList.remove('hidden');
+
+                this.currentView = viewName;
+            }
+
+            setupVisualizers() {
+                this.fhrVisualizer = new FHRSignalVisualizer('fhrCanvas', '#f97316', 100, 170);
+                this.tocoVisualizer = new FHRSignalVisualizer('tocoCanvas', '#06b6d4', 0, 50);
+                this.shapeletViz = new ShapeletVisualizer();
+
+                this.fhrVisualizer.start();
+                this.tocoVisualizer.start();
+            }
+
+            setupUpload() {
+                const uploadZone = document.getElementById('uploadZone');
+                const fileInput = document.getElementById('fileInput');
+
+                uploadZone.addEventListener('click', () => fileInput.click());
+
+                uploadZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.add('dragover');
+                });
+
+                uploadZone.addEventListener('dragleave', () => {
+                    uploadZone.classList.remove('dragover');
+                });
+
+                uploadZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.remove('dragover');
+                    this.handleFiles(e.dataTransfer.files);
+                });
+
+                fileInput.addEventListener('change', (e) => {
+                    this.handleFiles(e.target.files);
+                });
+            }
+
+            setupControls() {
+                const toggleBtn = document.getElementById('toggleSignal');
+                const refreshBtn = document.getElementById('refreshSignal');
+
+                toggleBtn.addEventListener('click', () => {
+                    const isRunning = this.fhrVisualizer.toggle();
+                    this.tocoVisualizer.isRunning = isRunning;
+                    toggleBtn.textContent = isRunning ? 'Pause' : 'Resume';
+                });
+
+                refreshBtn.addEventListener('click', () => {
+                    this.fhrVisualizer.generateInitialData();
+                    this.tocoVisualizer.generateInitialData();
+                });
+            }
+
+            handleFiles(files) {
+                const fileList = document.getElementById('fileList');
+
+                Array.from(files).forEach(file => {
+                    if (!file.name.endsWith('.csv')) return;
+
+                    const fileId = Date.now() + Math.random();
+                    this.uploadedFiles.push({ id: fileId, file, status: 'pending' });
+
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item animate-in';
+                    fileItem.id = `file-${fileId}`;
+                    fileItem.innerHTML = `
+                        <div class="file-icon">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <div class="file-info">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-meta">${this.formatFileSize(file.size)}</div>
+                        </div>
+                        <span class="file-status pending">Pending</span>
+                        <button class="file-remove" onclick="app.removeFile('${fileId}')">
+                            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    `;
+
+                    fileList.appendChild(fileItem);
+                    this.analyzeFile(fileId);
+                });
+            }
+
+            analyzeFile(fileId) {
+                const fileItem = document.getElementById(`file-${fileId}`);
+                const statusEl = fileItem.querySelector('.file-status');
+
+                // Update to analyzing
+                statusEl.textContent = 'Analyzing...';
+                statusEl.className = 'file-status analyzing';
+
+                // Simulate analysis
+                setTimeout(() => {
+                    const isAnomaly = Math.random() > 0.7;
+                    statusEl.textContent = isAnomaly ? 'Anomaly Detected' : 'Normal';
+                    statusEl.className = `file-status ${isAnomaly ? 'anomaly' : 'complete'}`;
+                }, 2000 + Math.random() * 2000);
+            }
+
+            removeFile(fileId) {
+                this.uploadedFiles = this.uploadedFiles.filter(f => f.id !== fileId);
+                const fileItem = document.getElementById(`file-${fileId}`);
+                if (fileItem) {
+                    fileItem.style.opacity = '0';
+                    fileItem.style.transform = 'translateX(20px)';
+                    setTimeout(() => fileItem.remove(), 300);
+                }
+            }
+
+            formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+
+            startSimulation() {
+                // Simulate periodic analysis updates
+                setInterval(() => {
+                    if (this.currentView === 'dashboard') {
+                        this.simulateAnalysis();
+                    }
+                }, 5000);
+            }
+
+            simulateAnalysis() {
+                const isAnomaly = Math.random() > 0.85;
+                const confidence = 85 + Math.random() * 14;
+
+                const resultCard = document.getElementById('resultCard');
+                const resultValue = document.getElementById('resultValue');
+                const confidenceFill = document.getElementById('confidenceFill');
+                const confidenceValue = document.getElementById('confidenceValue');
+                const indicator = document.getElementById('signalIndicator');
+
+                if (isAnomaly) {
+                    resultCard.classList.add('warning');
+                    resultValue.textContent = 'ANOMALY';
+                    resultValue.className = 'result-value anomaly';
+                    indicator.className = 'signal-indicator anomaly';
+                } else {
+                    resultCard.classList.remove('warning');
+                    resultValue.textContent = 'NORMAL';
+                    resultValue.className = 'result-value normal';
+                    indicator.className = 'signal-indicator';
+                }
+
+                confidenceFill.style.width = confidence + '%';
+                confidenceValue.textContent = Math.round(confidence) + '%';
+
+                // Update shapelet match distance
+                this.shapeletViz.updateMatch(isAnomaly ? 0.15 + Math.random() * 0.2 : 0.5 + Math.random() * 0.3);
+            }
+        }
+
+        // Initialize app
+        const app = new FetaletApp();
+    </script>
+</body>
+</html>

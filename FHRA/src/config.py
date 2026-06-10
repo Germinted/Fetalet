@@ -19,8 +19,14 @@ MODEL_CONFIG = {
     "num_classes": 2,
     "num_prototypes": 5,
     "shapelet_length": 30,
-    "num_candidates": 5
+    "num_candidates": 5,
+    # Priority 1 improvements
+    "dropout_rate": 0.25,
+    "use_residual": True  # Use residual connections in CNN
 }
+
+# Model variant selection (not passed to model constructor)
+USE_LIGHTWEIGHT_MODEL = False  # Set to True to use LightweightDualBranchModel instead
 
 # Training hyperparameters
 TRAINING_CONFIG = {

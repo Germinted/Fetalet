@@ -34,10 +34,17 @@ class ModelConfig:
     FC_HIDDEN_DIMS = [128, 64]
     NUM_CLASSES = 2
 
+    # Priority 1 improvements
+    DROPOUT_RATE = 0.25  # Dropout for regularization
+    USE_RESIDUAL = True  # Use residual connections in CNN
+
     # Loss parameters
     ALPHA = 0.3  # Weight for prototype loss
     MARGIN = 1.0  # Margin for prototype loss
     EPS = 1e-8  # Numerical stability
+
+# Model variant selection (not passed to model constructor)
+USE_LIGHTWEIGHT_MODEL = False  # Set to True to use LightweightDualBranchModel instead
 
 class TrainingConfig:
     """Training configuration parameters."""

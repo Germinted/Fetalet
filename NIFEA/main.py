@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 # Import from modular components
 from src.config import Config
 from src.dataset import NIFEADataset, create_data_loaders, inspect_dataset
-from src.models import DualBranchModel
+from src.models import DualBranchModel, LightweightDualBranchModel
 from src.loss import HybridLoss
 from src.training import Trainer, Evaluator, initialize_prototypes
 from src.visualization import NIFEAVisualizer
@@ -70,14 +70,29 @@ def main():
 
     # Initialize model
     print("\n3. Initializing model...")
-    model = DualBranchModel(
-        in_channels=Config.DATA.IN_CHANNELS,
-        window_size=Config.DATA.WINDOW_SIZE,
-        num_classes=Config.MODEL.NUM_CLASSES,
-        num_prototypes=Config.MODEL.NUM_PROTOTYPES,
-        shapelet_length=Config.MODEL.SHAPELET_LENGTH,
-        num_candidates=Config.MODEL.NUM_CANDIDATES
-    ).to(device)
+    # Select model variant based on config
+    if USE_LIGHTWEIGHT_MODEL:
+        model = LightweightDualBranchModel(
+            in_channels=Config.DATA.IN_CHANNELS,
+            window_size=Config.DATA.WINDOW_SIZE,
+            num_classes=Config.MODEL.NUM_CLASSES,
+            num_prototypes=Config.MODEL.NUM_PROTOTYPES,
+            shapelet_length=Config.MODEL.SHAPELET_LENGTH,
+            dropout_rate=Config.MODEL.DROPOUT_RATE
+        ).to(device)
+        print("Using Lightweight model variant")
+    else:
+        model = DualBranchModel(
+            in_channels=Config.DATA.IN_CHANNELS,
+            window_size=Config.DATA.WINDOW_SIZE,
+            num_classes=Config.MODEL.NUM_CLASSES,
+            num_prototypes=Config.MODEL.NUM_PROTOTYPES,
+            shapelet_length=Config.MODEL.SHAPELET_LENGTH,
+            num_candidates=Config.MODEL.NUM_CANDIDATES,
+            dropout_rate=Config.MODEL.DROPOUT_RATE,
+            use_residual=Config.MODEL.USE_RESIDUAL
+        ).to(device)
+        print("Using Enhanced model with residual connections")
 
     # Print model information
     print_model_info(model, (1, Config.DATA.IN_CHANNELS, Config.DATA.WINDOW_SIZE))

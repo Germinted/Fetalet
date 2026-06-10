@@ -11,11 +11,11 @@ sys.path.append(str(Path(__file__).parent / "src"))
 from src.config import (
     DEVICE, DATA_DIR, MODEL_DIR, PLOT_DIR,
     MODEL_CONFIG, TRAINING_CONFIG, DATASET_CONFIG,
-    VIZ_CONFIG
+    VIZ_CONFIG, USE_LIGHTWEIGHT_MODEL
 )
 from src.utils import setup_seed, ensure_dir
 from src.dataset import FHRDataset, create_data_loaders
-from src.models import DualBranchModel
+from src.models import DualBranchModel, LightweightDualBranchModel
 from src.loss import HybridLoss
 from src.training import Trainer, Evaluator, initialize_prototypes
 from src.visualization import FHRVisualizer
@@ -64,7 +64,13 @@ def main():
 
     # Initialize model
     print("\n[3/5] Initializing model...")
-    model = DualBranchModel(**MODEL_CONFIG).to(DEVICE)
+    # Select model variant based on config
+    if USE_LIGHTWEIGHT_MODEL:
+        model = LightweightDualBranchModel(**MODEL_CONFIG).to(DEVICE)
+        print("Using Lightweight model variant")
+    else:
+        model = DualBranchModel(**MODEL_CONFIG).to(DEVICE)
+        print("Using Enhanced model with residual connections")
 
     # Print model information
     total_params = sum(p.numel() for p in model.parameters())
